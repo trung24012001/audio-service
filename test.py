@@ -1,5 +1,3 @@
-from random import sample
-from pydub import AudioSegment
 from AudioService import AudioService 
 
 service = AudioService()
