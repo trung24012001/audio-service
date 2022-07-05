@@ -4,7 +4,7 @@ import wave
 import sys
 
 
-spf = wave.open("output/concat_file.wav", "r")
+spf = wave.open("output/problem_file.wav", "r")
 
 # Extract Raw Audio from Wav File
 signal = spf.readframes(-1)
