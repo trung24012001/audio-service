@@ -2,4 +2,4 @@ __pycache__
 venv
 .env
 output/*
-resource/*
+resource/procon_audio/sample_Q_202205/*

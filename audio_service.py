@@ -29,8 +29,8 @@ class AudioService:
     def gen_problem_data(self, sounds):
         problem = AudioSegment.empty()
         for sound in sounds:
-            audio = sound['audio']
-            offset = (sound['offset'] / 48000) * 1000
+            audio = sound["audio"]
+            offset = (sound["offset"] / 48000) * 1000
             audio = audio[offset:]
             if len(problem) > len(audio) or len(problem) == 0:
                 problem = audio.overlay(problem)
