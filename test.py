@@ -1,5 +1,6 @@
 from audio_service import AudioService
 from pydub import AudioSegment
+import pickledb
 
 service = AudioService()
 
@@ -34,7 +35,8 @@ def test_problem_data():
     sounds = []
     for item in data:
         sounds.append(
-            {"audio": AudioSegment.from_wav(item["path"]), "offset": item["offset"]}
+            {"audio": AudioSegment.from_wav(
+                item["path"]), "offset": item["offset"]}
         )
     problem = service.gen_problem_data(sounds)
     problem.export("output/problem_file.wav", format="wav")
@@ -62,7 +64,14 @@ def test():
     )
 
 
+def testDb():
+    db = pickledb.load('db/database.db', True)
+    db.set('lala', 'agag')
+
+
+testDb()
+
 # test_format()
-test_divided_data()
+# test_divided_data()
 # test_problem_data()
 # test()

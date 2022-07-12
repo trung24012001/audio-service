@@ -4,40 +4,49 @@ from audio_service import AudioService
 from pydub import AudioSegment
 import random
 import base64
+import uuid
+import pickledb
 
 app = Flask(__name__)
 cors = CORS(app)
 audioService = AudioService()
+db = pickledb.load('db/database.db', True)
+SCORE_PLUS = 100
 
 
-@app.route(r"/api/problem-data", methods=["GET"])
+@app.route(r"/api/problem-data", methods=["POST"])
 @cross_origin()
-def getProblemData():
+def createProblemData():
     try:
         sounds = []
-        n_reading = random.randint(3, 20)
+        n_reading_card = random.randint(3, 20)
         path = "resource/procon_audio/JKspeech/{}.wav"
         answer_list = []
         i = 0
-        while i < n_reading:
+        while i < n_reading_card:
             file_name = rand_file_name(answer_list)
             answer_list.append(file_name)
             sound = AudioSegment.from_wav(path.format(file_name))
             sounds.append(
-                {"audio": sound, "offset": random.randint(0, len(sound)) / 1000 * 48000}
+                {"audio": sound, "offset": random.randint(
+                    0, len(sound)) / 1000 * 48000}
             )
             i += 1
 
         problem_data = audioService.gen_problem_data(sounds)
 
+        data = {
+            "question_uuid": uuid.uuid4(),
+            "problem_data": audio_base64(problem_data.raw_data),
+            "n_card": n_reading_card,
+            "answer_data": answer_list,
+            "service_type": "PYTHON_AUDIO_SERVICE",
+        }
+
+        db.set(data['question_uuid'], data)
+
         return (
-            jsonify(
-                {
-                    "problem_data": audio_base64(problem_data.raw_data),
-                    "n_reading": n_reading,
-                    "answer": answer_list,
-                }
-            ),
+            jsonify(data),
             200,
         )
     except Exception as e:
@@ -47,7 +56,7 @@ def getProblemData():
 
 @app.route(r"/api/divided-data", methods=["POST"])
 @cross_origin()
-def getDividedData():
+def createDividedData():
     n_divided = request.form["n_divided"]
     problem_file = request.files["problem_file"]
     problem_data = AudioSegment.from_wav(problem_file)
@@ -71,6 +80,35 @@ def getDividedData():
     except Exception as e:
         print(e)
         return jsonify({"error": "Could not create divided data!"}), 500
+
+
+@app.route(r"/api/answer-data", methods=["POST"])
+@cross_origin()
+def createScore():
+    payload = request.get_json()
+    team_answer = payload["answer_data"]
+    question_id = team_answer["question_uuid"]
+    data = db.get(question_id)
+    answer_data = data["answer_data"]
+    score, correct, deduct = 0, 0, 0
+    try:
+        cards = [*team_answer["picked_cards"], *team_answer["changed_cards"]]
+        for card in cards:
+            if card["answer"] in answer_data:
+                score += card["coef"] * SCORE_PLUS - card["deduct"]
+                deduct += card["deduct"]
+                correct += 1
+        score_data = {
+            "score": score,
+            "correct": correct,
+            "deduct": deduct
+        }
+        data["score_data"] = score_data
+        db.set(question_id, data)
+        return jsonify(score_data), 200
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "Could not handle answer data!"}), 500
 
 
 def rand_file_name(avoids):
