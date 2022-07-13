@@ -20,7 +20,7 @@ class AudioService:
         start, end = 0, 0
         for dur in durations:
             start = end
-            end = start + (dur / 48000) * 1000
+            end = start + dur
             segment = sound[start:end]
             segments.append(segment)
 
@@ -30,7 +30,7 @@ class AudioService:
         problem = AudioSegment.empty()
         for sound in sounds:
             audio = sound["audio"]
-            offset = (sound["offset"] / 48000) * 1000
+            offset = sound["offset"]
             audio = audio[offset:]
             if len(problem) > len(audio) or len(problem) == 0:
                 problem = audio.overlay(problem)
