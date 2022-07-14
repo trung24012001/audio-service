@@ -1,3 +1,4 @@
+from msilib.schema import Error
 from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS, cross_origin
 from audio_service import AudioService
@@ -12,8 +13,11 @@ app = Flask(__name__)
 cors = CORS(app)
 audioService = AudioService()
 db = pickledb.load("db/database.db", True, False)
+BONUS_COEF = 2
 SCORE_DEDUCT = 10
 SCORE_PLUS = 100
+SCORE_THRESHOLD = 0
+DEDUCT_THRESHOLD = 100
 RESOURCE_PATH = "resource/procon_audio/JKspeech"
 OUTPUT_PATH = "output/audio"
 
@@ -50,7 +54,7 @@ def createProblemData():
                     "question_uuid": uid,
                     "problem_data": file_name,
                     "answer_data": answer_list,
-                    "bonus_coef": 1,
+                    "bonus_coef": BONUS_COEF,
                 }
             ),
         )
@@ -67,22 +71,20 @@ def createProblemData():
             200,
         )
     except Exception as e:
-        print(e)
-        return jsonify({"error": "Could not create problem data!"}), 500
+        return f"{e}", 500
 
 
 @app.route(r"/divided-data", methods=["POST"])
 @cross_origin()
 def createDividedData():
-    payload = request.get_json()
-    n_divided = payload["n_divided"]
-    question_id = payload["question_uuid"]
-    problem_data = AudioSegment.from_wav("{}/{}.wav".format(OUTPUT_PATH, question_id))
     try:
-        n_divided = int(n_divided)
-        if n_divided < 2 or n_divided > 5:
-            raise Exception("Number of divided data must >= 2 and <= 5")
-        durations = []
+        payload = request.get_json()
+        n_divided = int(payload["n_divided"])
+        question_uuid = payload["question_uuid"]
+        durations, result = [], []
+        problem_data = AudioSegment.from_wav(
+            "{}/{}.wav".format(OUTPUT_PATH, question_uuid)
+        )
         len_sound = len(problem_data)
         i = n_divided - 1
         sum = 0
@@ -96,42 +98,61 @@ def createDividedData():
             sum += dur
             i -= 1
         segments = audioService.gen_divided_data(problem_data, durations)
-        result = []
         for seg in segments:
             uid = str(uuid.uuid4())
             file_name = "{}.wav".format(uid)
             seg.export("{}/{}".format(OUTPUT_PATH, file_name), format="wav")
             result.append(file_name)
+
+        question_data = json.loads(db.get(question_uuid))
+        question_data["bonus_coef"] = BONUS_COEF + (n_divided - 1) * (-0.25)
+        db.set(question_uuid, json.dumps(question_data))
         return jsonify(result), 200
     except Exception as e:
-        print(e)
-        return jsonify({"error": "Could not create divided data!"}), 500
+        return f"{e}", 500
 
 
 @app.route(r"/answer-data", methods=["POST"])
 @cross_origin()
 def createScore():
-    payload = request.get_json()
-    team_answer = payload["answer_data"]
-    question_uuid = team_answer["question_uuid"]
-    data = json.loads(db.get(question_uuid))
-    answer_data = data["answer_data"]
-    score, correct = 0, 0, 0
     try:
-        cards = [*team_answer["picked_cards"], *team_answer["changed_cards"]]
-        for card in cards:
-            if card in answer_data:
-                score += data["bonus_coef"] * SCORE_PLUS
+        payload = request.get_json()
+        team_answer = payload["answer_data"]
+        question_uuid = payload["question_uuid"]
+        question_data = json.loads(db.get(question_uuid))
+        real_answer = question_data["answer_data"]
+        score, correct = 0, 0
+        answers = team_answer["picked_cards"] + team_answer["changed_cards"]
+        if len(answers) != len(real_answer):
+            raise Exception(
+                "Number of answer must be equal number of reading cards that generate problem data"
+            )
+        for answer in answers:
+            if answer in real_answer:
+                score += question_data["bonus_coef"] * SCORE_PLUS
                 correct += 1
         deduct = len(team_answer["changed_cards"]) * SCORE_DEDUCT
-        score -= deduct
+        score_data = question_data["score_data"]
+        if score_data:
+            score_data["deduct"] += SCORE_DEDUCT
+            if score_data["deduct"] > DEDUCT_THRESHOLD:
+                score_data["deduct"] = 100
+            deduct = score_data["deduct"]
+        score = (
+            SCORE_THRESHOLD if (score - deduct) < SCORE_THRESHOLD else (score - deduct)
+        )
         score_data = {"score": score, "correct": correct, "deduct": deduct}
-        data["score_data"] = score_data
-        db.set(question_uuid, json.dumps(data))
+        question_data["score_data"] = score_data
+        db.set(question_uuid, json.dumps(question_data))
         return jsonify(score_data), 200
     except Exception as e:
         print(e)
-        return jsonify({"error": "Could not handle answer data!"}), 500
+        return f"{e}", 500
+
+
+@app.route(r"/audio/<path:filename>")
+def download_file(filename):
+    return send_from_directory(OUTPUT_PATH, filename, as_attachment=False)
 
 
 def rand_file_name(avoids):
@@ -142,11 +163,6 @@ def rand_file_name(avoids):
         file_name = rand_file_name(avoids)
 
     return file_name
-
-
-@app.route(r"/audio/<path:filename>")
-def download_file(filename):
-    return send_from_directory(OUTPUT_PATH, filename, as_attachment=False)
 
 
 def audio_base64(audio):
