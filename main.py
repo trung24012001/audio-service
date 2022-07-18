@@ -12,7 +12,8 @@ import json
 app = Flask(__name__)
 cors = CORS(app)
 audioService = AudioService()
-db = pickledb.load("db/database.db", True, False)
+question_db = pickledb.load("db/question.db", True, False)
+answer_db = pickledb.load("db/answer.db", True, False)
 BONUS_COEF = 2
 SCORE_DEDUCT = 10
 SCORE_PLUS = 100
@@ -47,14 +48,13 @@ def createProblemData():
         file_name = "{}.wav".format(uid)
         problem_data.export("{}/{}".format(OUTPUT_PATH, file_name), format="wav")
 
-        db.set(
+        question_db.set(
             uid,
             json.dumps(
                 {
                     "question_uuid": uid,
                     "problem_data": file_name,
                     "answer_data": answer_list,
-                    "bonus_coef": BONUS_COEF,
                 }
             ),
         )
@@ -79,6 +79,7 @@ def createProblemData():
 def createDividedData():
     try:
         payload = request.get_json()
+        team_id = payload["team_id"]
         n_divided = int(payload["n_divided"])
         question_uuid = payload["question_uuid"]
         durations, result = [], []
@@ -104,9 +105,13 @@ def createDividedData():
             seg.export("{}/{}".format(OUTPUT_PATH, file_name), format="wav")
             result.append(file_name)
 
-        question_data = json.loads(db.get(question_uuid))
-        question_data["bonus_coef"] = BONUS_COEF + (n_divided - 1) * (-0.25)
-        db.set(question_uuid, json.dumps(question_data))
+        bonus = BONUS_COEF + (n_divided - 1) * (-0.25)
+        answer_uuid = question_uuid + team_id
+        if not answer_db.get(answer_uuid):
+            answer_db.set(answer_uuid, json.dumps({}))
+        answer = json.loads(answer_db.get(answer_uuid))
+        answer["bonus_coef"] = bonus
+        answer_db.set(answer_uuid, json.dumps(answer))
         return jsonify(result), 200
     except Exception as e:
         return f"{e}", 500
@@ -117,22 +122,30 @@ def createDividedData():
 def createScore():
     try:
         payload = request.get_json()
-        team_answer = payload["answer_data"]
+        team_id = payload["team_id"]
+        payload_answer = payload["answer_data"]
         question_uuid = payload["question_uuid"]
-        question_data = json.loads(db.get(question_uuid))
-        real_answer = question_data["answer_data"]
+        question_data = json.loads(question_db.get(question_uuid))
+        right_answers = question_data["answer_data"]
+        check_answers = payload_answer["picked_cards"] + payload_answer["changed_cards"]
         score, correct = 0, 0
-        answers = team_answer["picked_cards"] + team_answer["changed_cards"]
-        if len(answers) != len(real_answer):
+
+        answer_uuid = question_uuid + team_id
+        if not answer_db.get(answer_uuid):
+            answer_db.set(answer_uuid, json.dumps({"bonus_coef": BONUS_COEF}))
+        answer_data = json.loads(answer_db.get(answer_uuid))
+
+        if len(check_answers) != len(right_answers):
             raise Exception(
                 "Number of answer must be equal number of reading cards that generate problem data"
             )
-        for answer in answers:
-            if answer in real_answer:
-                score += question_data["bonus_coef"] * SCORE_PLUS
+        for answer in check_answers:
+            if answer in check_answers:
+                score += answer_data["bonus_coef"] * SCORE_PLUS
                 correct += 1
-        deduct = len(team_answer["changed_cards"]) * SCORE_DEDUCT
-        score_data = question_data["score_data"]
+        deduct = len(check_answers["changed_cards"]) * SCORE_DEDUCT
+
+        score_data = answer_data.get("score_data")
         if score_data:
             score_data["deduct"] += SCORE_DEDUCT
             if score_data["deduct"] > DEDUCT_THRESHOLD:
@@ -142,8 +155,8 @@ def createScore():
             SCORE_THRESHOLD if (score - deduct) < SCORE_THRESHOLD else (score - deduct)
         )
         score_data = {"score": score, "correct": correct, "deduct": deduct}
-        question_data["score_data"] = score_data
-        db.set(question_uuid, json.dumps(question_data))
+        answer_data["score_data"] = score_data
+        answer_db.set(answer_uuid, json.dumps(answer_data))
         return jsonify(score_data), 200
     except Exception as e:
         print(e)
