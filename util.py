@@ -10,18 +10,26 @@ SCORE_THRESHOLD = 0
 DEDUCT_THRESHOLD = 100
 
 
-def get_answer_db(question_uuid, team_id):
+def get_answer(question_uuid, team_id):
     answer_uuid = question_uuid + team_id
     if not db.get(answer_uuid):
-        db.set(answer_uuid, json.dumps(
-            {"answer_uuid": answer_uuid, "bonus_coef": BONUS_COEF, "question_uuid": question_uuid, "team_id": team_id}))
+        db.set(
+            answer_uuid,
+            json.dumps(
+                {
+                    "answer_uuid": answer_uuid,
+                    "bonus_coef": BONUS_COEF,
+                    "question_uuid": question_uuid,
+                    "team_id": team_id,
+                }
+            ),
+        )
     return json.loads(db.get(answer_uuid))
 
 
 def get_score(payload_answer, question_data, answer_data):
     right_answers = question_data["answer_data"]
-    check_answers = [*payload_answer["picked_cards"],
-                     *payload_answer["changed_cards"]]
+    check_answers = [*payload_answer["picked_cards"], *payload_answer["changed_cards"]]
     score, correct = 0, 0
 
     if len(check_answers) != len(right_answers):
@@ -40,12 +48,13 @@ def get_score(payload_answer, question_data, answer_data):
         if score_data["deduct"] > DEDUCT_THRESHOLD:
             score_data["deduct"] = 100
         deduct = score_data["deduct"]
-    score = (
-        SCORE_THRESHOLD if (
-            score - deduct) < SCORE_THRESHOLD else (score - deduct)
-    )
-    score_data = {"score": score, "correct": correct,
-                  "deduct": deduct, "bonus": answer_data["bonus_coef"]}
+    score = SCORE_THRESHOLD if (score - deduct) < SCORE_THRESHOLD else (score - deduct)
+    score_data = {
+        "score": score,
+        "correct": correct,
+        "deduct": deduct,
+        "bonus": answer_data["bonus_coef"],
+    }
 
     return score_data
 

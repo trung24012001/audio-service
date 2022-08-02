@@ -29,8 +29,7 @@ def createProblemData():
         while i < n_reading_card:
             file_name = util.get_rand_filename(answer_list)
             answer_list.append(file_name)
-            sound = AudioSegment.from_wav(
-                "{}/{}.wav".format(RESOURCE_PATH, file_name))
+            sound = AudioSegment.from_wav("{}/{}.wav".format(RESOURCE_PATH, file_name))
             sounds.append(
                 {
                     "audio": sound,
@@ -42,8 +41,7 @@ def createProblemData():
         problem_data = audioService.gen_problem_data(sounds)
         uid = str(uuid.uuid4())
         file_name = "{}.wav".format(uid)
-        problem_data.export(
-            "{}/{}".format(OUTPUT_PATH, file_name), format="wav")
+        problem_data.export("{}/{}".format(OUTPUT_PATH, file_name), format="wav")
 
         db.set(
             uid,
@@ -103,7 +101,7 @@ def createDividedData():
             result.append(AUDIO_PREFIX + file_name)
 
         bonus = BONUS_COEF + (n_divided - 1) * (-0.25)
-        answer_data = util.get_answer_db(question_uuid, team_id)
+        answer_data = util.get_answer(question_uuid, team_id)
         answer_data["bonus_coef"] = bonus
         db.set(answer_data["answer_uuid"], json.dumps(answer_data))
         return jsonify(result), 200
@@ -119,9 +117,9 @@ def createScore():
         team_id = str(payload["team_id"])
         payload_answer = payload["answer_data"]
         question_uuid = payload["question_uuid"]
-        question_data = json.loads(db.get(question_uuid))
-        answer_data = util.get_answer_db(question_uuid, team_id)
 
+        question_data = json.loads(db.get(question_uuid))
+        answer_data = util.get_answer(question_uuid, team_id)
         score_data = util.get_score(payload_answer, question_data, answer_data)
 
         answer_data["score_data"] = score_data
@@ -134,7 +132,7 @@ def createScore():
 
 
 @app.route(r"/audio/<path:filename>")
-def download_file(filename):
+def get_audio_file(filename):
     return send_from_directory(OUTPUT_PATH, filename, as_attachment=False)
 
 
