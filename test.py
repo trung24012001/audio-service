@@ -1,8 +1,6 @@
-from audio_service import AudioService
+import audio_service as service
 from pydub import AudioSegment
 import pickledb
-
-service = AudioService()
 
 
 def test_format():
@@ -14,7 +12,7 @@ def test_format():
 
 def test_divided_data():
     problem = AudioSegment.from_wav("output/problem_file.wav")
-    segments = service.gen_divided_data(
+    segments = service.seperate_audio(
         problem, durations=[24000, 24000, 24000, 24000, 58996]
     )
     for i in range(len(segments)):
@@ -35,33 +33,12 @@ def test_problem_data():
     sounds = []
     for item in data:
         sounds.append(
-            {"audio": AudioSegment.from_wav(
+            {"audio": service.get_audio_file(
                 item["path"]), "offset": item["offset"]}
         )
-    problem = service.gen_problem_data(sounds)
+    problem = service.overlap_audio(sounds)
     problem.export("output/problem_file.wav", format="wav")
     print("Problem data test successfully")
-
-
-def test():
-    problem_file = AudioSegment.from_wav("output/problem_file.wav")
-    test_file = AudioSegment.from_wav(
-        "resource/procon_audio/sample_Q_202205/sample_Q_M01/problem.wav"
-    )
-    print(
-        "test_file",
-        test_file.sample_width,
-        test_file.frame_rate,
-        test_file.channels,
-        len(test_file),
-    )
-    print(
-        "problem_file",
-        problem_file.sample_width,
-        problem_file.frame_rate,
-        problem_file.channels,
-        len(problem_file),
-    )
 
 
 def testDb():
