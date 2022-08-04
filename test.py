@@ -4,9 +4,8 @@ import pickledb
 
 
 def test_format():
-    sound = service.format_audio("resource/source_file.wav")
-    print(sound.sample_width, sound.frame_rate, sound.channels)
-    sound.export("output/source_file.wav", format="wav")
+    sound = service.get_audio("E05")
+    print(sound.sample_width, sound.frame_rate, sound.channels, len(sound))
     print("Format test successfully")
 
 
@@ -21,11 +20,11 @@ def test_divided_data():
 
 
 data = [
-    {"path": "resource/procon_audio/JKspeech/J01.wav", "offset": 4800},
-    {"path": "resource/procon_audio/JKspeech/E02.wav", "offset": 9600},
-    {"path": "resource/procon_audio/JKspeech/J03.wav", "offset": 4800},
-    {"path": "resource/procon_audio/JKspeech/E04.wav", "offset": 9600},
-    {"path": "resource/procon_audio/JKspeech/J05.wav", "offset": 4800},
+    {"card": "J01", "offset": 4800},
+    {"card": "E02", "offset": 9600},
+    {"card": "J03", "offset": 4800},
+    {"card": "E04", "offset": 9600},
+    {"card": "J05", "offset": 4800},
 ]
 
 
@@ -33,22 +32,21 @@ def test_problem_data():
     sounds = []
     for item in data:
         sounds.append(
-            {"audio": service.get_audio_file(
-                item["path"]), "offset": item["offset"]}
+            {"audio": service.get_audio(item["card"]), "offset": item["offset"]}
         )
     problem = service.overlap_audio(sounds)
     problem.export("output/problem_file.wav", format="wav")
     print("Problem data test successfully")
 
 
-def testDb():
-    db = pickledb.load('db/database.db', True)
-    db.set('lala', 'agag')
+# def testDb():
+#     db = pickledb.load('db/database.db', True)
+#     db.set('lala', 'agag')
 
 
-testDb()
+# testDb()
 
 # test_format()
 # test_divided_data()
-# test_problem_data()
+test_problem_data()
 # test()

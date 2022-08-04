@@ -1,25 +1,28 @@
 from pydub import AudioSegment
+import base64
 
 RESOURCE_PATH = "resource/procon_audio/JKspeech"
-OUTPUT_PATH = "output/audio"
+SAMPLE_RATE = 48000
 
 
-def get_audio_file(file_name):
-    sound = AudioSegment.from_wav(
-        "{}/{}.wav".format(RESOURCE_PATH, file_name))
-    return sound
+def get_audio(file_name, dir="resource"):
+    if dir == "resource":
+        path = RESOURCE_PATH
+    else:
+        path = dir
+
+    return AudioSegment.from_wav("{}/{}.wav".format(path, file_name))
 
 
-def export_audio(sound, file_name):
-    sound.export(
-        "{}/{}".format(OUTPUT_PATH, file_name), format="wav")
-    return True
+def export_audio(sound, path, format):
+    sound.export(path, format=format)
+    return path
 
 
 def format_audio(path):
     sound = AudioSegment.from_file(path, format="wav")
     # sampling 48kHz
-    sound = sound.set_frame_rate(48000)
+    sound = sound.set_frame_rate(SAMPLE_RATE)
     # quantization 2 bytes ~ 16 bit rate
     sound = sound.set_sample_width(2)
     # monaural
@@ -43,11 +46,16 @@ def overlap_audio(sounds):
     problem = AudioSegment.empty()
     for sound in sounds:
         audio = sound["audio"]
-        offset = sound["offset"]
+        offset = sound["offset"] / SAMPLE_RATE
         audio = audio[offset:]
-        if len(problem) > len(audio) or len(problem) == 0:
-            problem = audio.overlay(problem)
-        else:
-            problem = problem.overlay(audio)
+        problem = (
+            audio.overlay(problem)
+            if len(problem) > len(audio) or len(problem) == 0
+            else problem.overlay(audio)
+        )
 
     return problem
+
+
+def to_base64(sound):
+    return base64.b64encode(sound.raw_data).decode("utf-8")
