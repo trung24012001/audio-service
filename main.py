@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS, cross_origin
 import audio_service as AudioService
 import random
@@ -6,6 +6,7 @@ import uuid
 from database import db
 import json
 import utils
+import io
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -131,44 +132,47 @@ def createScore():
 @app.route(r"/audio", methods=["GET"])
 def get_audio_data():
     try:
-
         type = request.args.get("type")
-        question_uuid = request.args.get("question_uuid")
-        team_id = request.args.get("team_id")
-        question = json.loads(db.get(question_uuid))
-        problem_audio = AudioService.to_base64(
-            AudioService.overlap_audio(
+        audio_data = None
+        if type == "answer":
+            answer_uuid = request.args.get("answer_uuid")
+            answer = json.loads(db.get(answer_uuid)) if db.get(answer_uuid) else {}
+            audio_data = AudioService.overlap_audio(
+                [
+                    {
+                        "audio": AudioService.get_audio(card),
+                        "offset": 0,
+                    }
+                    for card in (answer.get("score_data") or {}).get("card_selected")
+                    or []
+                ]
+            )
+
+        elif type == "question":
+            question_uuid = request.args.get("question_uuid")
+            question = utils.get_question(question_uuid)
+            audio_data = AudioService.overlap_audio(
                 [
                     {
                         "audio": AudioService.get_audio(data["card"]),
                         "offset": data["offset"],
                     }
-                    for data in question["answer_data"]
+                    for data in question.get("answer_data") or []
                 ]
             )
+            print(len(audio_data))
+            audio_data.export("output/audio.wav", format="wav")
+
+        if not audio_data:
+            return jsonify("No data"), 400
+
+        return send_file(
+            io.BytesIO(audio_data.raw_data),
+            attachment_filename="audio.wav",
+            mimetype="audio/wav",
+            as_attachment=False,
         )
 
-        result = {"problem_audio": problem_audio}
-
-        if type == "answer":
-            answer_uuid = question_uuid + str(team_id)
-            answer = json.loads(db.get(answer_uuid)) if db.get(answer_uuid) else {}
-            result["team_audio"] = AudioService.to_base64(
-                AudioService.overlap_audio(
-                    [
-                        {
-                            "audio": AudioService.get_audio(card),
-                            "offset": 0,
-                        }
-                        for card in (answer.get("score_data") or {}).get(
-                            "card_selected"
-                        )
-                        or []
-                    ]
-                )
-            )
-
-        return jsonify(result), 200
     except Exception as e:
         return f"{e}", 500
 
