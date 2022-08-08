@@ -16,13 +16,12 @@ def get_card_list():
 AUDIO_CARDS = get_card_list()
 
 
-def get_answer(question_uuid, team_id):
-    answer_uuid = question_uuid + str(team_id)
+def get_answer(answer_uuid):
     answer = db.get(answer_uuid)
     if not answer:
         db.set(
             answer_uuid,
-            json.dumps({"answer_uuid": answer_uuid, "n_divided": 0}),
+            json.dumps({"answer_uuid": answer_uuid}),
         )
     return json.loads(answer)
 
@@ -36,7 +35,7 @@ def get_question(question_uuid):
 
 def change_score(team_cards, team_id, question_uuid):
     question = get_question(question_uuid)
-    answer = get_answer(question_uuid, team_id)
+    answer = get_answer(question_uuid + str(team_id))
     answer_cards = [data["card"] for data in question["answer_data"]]
     print(answer_cards)
     for card in team_cards:
@@ -47,15 +46,13 @@ def change_score(team_cards, team_id, question_uuid):
             "Number of cards answer must be equal number of cards that generate problem data"
         )
 
-    print("xx")
     score_data = answer.get("score_data")
     correct, changed = get_score(team_cards, answer_cards, score_data)
     problem_audio = overlap_cards(question["answer_data"])
-    team_audio = overlap_cards([{"card": card, "offset": 0} for card in team_cards])
+    team_audio = overlap_cards(
+        [{"card": card, "offset": 0} for card in team_cards])
 
     score_data = {
-        "answer_uuid": answer["answer_uuid"],
-        "n_divided": answer["n_divided"],
         "correct": correct,
         "changed": changed,
         "card_selected": team_cards,
@@ -65,13 +62,14 @@ def change_score(team_cards, team_id, question_uuid):
     answer["score_data"] = score_data
     db.set(answer["answer_uuid"], json.dumps(answer))
 
-    return score_data
+    return answer
 
 
 def overlap_cards(cards):
     return AudioService.overlap_audio(
         [
-            {"audio": AudioService.get_audio(data["card"]), "offset": data["offset"]}
+            {"audio": AudioService.get_audio(
+                data["card"]), "offset": data["offset"]}
             for data in cards
         ]
     )

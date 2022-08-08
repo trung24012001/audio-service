@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS, cross_origin
 import audio_service as AudioService
 import random
@@ -6,7 +6,6 @@ import uuid
 from database import db
 import json
 import utils
-import io
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -72,16 +71,16 @@ def createProblemData():
 def createDividedData():
     try:
         payload = request.get_json()
-        team_id = str(payload["team_id"])
-        n_divided = int(payload["n_divided"])
+        team_id = payload["team_id"]
         question_uuid = payload["question_uuid"]
-        durations = []
+        n_divided = int(payload["n_divided"])
         question = utils.get_question(question_uuid)
         problem_audio = utils.overlap_cards(question["answer_data"])
 
         max_dur = len(problem_audio)
         i = n_divided - 1
         cur_dur = 0
+        segments = []
         while i >= 0:
             dur = (
                 max_dur - cur_dur
@@ -90,16 +89,15 @@ def createDividedData():
                     MIN_DIVIDED_TIME, max_dur - cur_dur - MIN_DIVIDED_TIME * i
                 )
             )
-            durations.append(dur)
+            segments.append({
+                "index": i,
+                "duration": dur
+            })
             cur_dur += dur
             i -= 1
-        segments = [
-            AudioService.to_base64(seg)
-            for seg in AudioService.seperate_audio(problem_audio, durations)
-        ]
 
-        answer = utils.get_answer(question_uuid, team_id)
-        answer["n_divided"] = n_divided
+        answer = utils.get_answer(question_uuid + str(team_id))
+        answer["divided_data"] = segments
         db.set(answer["answer_uuid"], json.dumps(answer))
 
         return jsonify(segments), 200
@@ -115,18 +113,11 @@ def createScore():
         team_id = payload["team_id"]
         team_cards = payload["answer_data"]
         question_uuid = payload["question_uuid"]
+        answer = utils.change_score(team_cards, team_id, question_uuid)
 
-        score_data = utils.change_score(team_cards, team_id, question_uuid)
-
-        return jsonify(score_data), 200
+        return jsonify(answer), 200
     except Exception as e:
         return f"{e}", 500
-
-
-# @app.route(r"/audio/<path:uuid>")
-# def get_audio_data(uuid):
-#     OUTPUT_PATH = "output/audio"
-#     return send_from_directory(OUTPUT_PATH, uuid, as_attachment=False)
 
 
 @app.route(r"/audio", methods=["GET"])
@@ -135,8 +126,7 @@ def get_audio_data():
         type = request.args.get("type")
         audio_data = None
         if type == "answer":
-            answer_uuid = request.args.get("answer_uuid")
-            answer = json.loads(db.get(answer_uuid)) if db.get(answer_uuid) else {}
+            answer = utils.get_answer(request.args.get("answer_uuid"))
             audio_data = AudioService.overlap_audio(
                 [
                     {
@@ -160,14 +150,30 @@ def get_audio_data():
                     for data in question.get("answer_data") or []
                 ]
             )
-            print(len(audio_data))
-            audio_data.export("output/audio.wav", format="wav")
+        elif type == "divided":
+            index = int(request.args.get("index"))
+            team_id = request.args.get("team_id")
+            question_uuid = request.args.get("question_uuid")
+            answer = utils.get_answer(question_uuid + str(team_id))
+            question = utils.get_question(question_uuid)
+            sound = AudioService.overlap_audio(
+                [
+                    {
+                        "audio": AudioService.get_audio(data["card"]),
+                        "offset": data["offset"],
+                    }
+                    for data in question.get("answer_data") or []
+                ]
+            )
+            segments = AudioService.seperate_audio(
+                sound, [item["duration"] for item in answer["divided_data"]])
+            audio_data = segments[index]
 
         if not audio_data:
-            return jsonify("No data"), 400
+            return jsonify("No data"), 404
 
         return send_file(
-            io.BytesIO(audio_data.raw_data),
+            audio_data.export(format="wav"),
             attachment_filename="audio.wav",
             mimetype="audio/wav",
             as_attachment=False,
