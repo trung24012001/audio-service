@@ -66,6 +66,52 @@ def createProblemData():
         return f"{e}", 500
 
 
+@app.route(r"/problem-data", methods=["PUT"])
+@cross_origin()
+def updateProblemData():
+    try:
+        payload = request.get_json()
+        n_cards = payload["n_cards"]
+        question_uuid = payload["question_uuid"]
+        if n_cards < MIN_CARD or n_cards > MAX_CARD:
+            n_cards = random.randint(MIN_CARD, MAX_CARD)
+        sounds = []
+        answer_cards = []
+        selected_cards = []
+        i = 0
+        while i < n_cards:
+            card = utils.get_random_card(selected_cards)
+            offset = random.randint(0, MAX_OFFSET_SAMPLE)
+            answer_cards.append({"card": card, "offset": offset})
+            selected_cards.append(card)
+            sounds.append(
+                {
+                    "audio": AudioService.get_audio(card),
+                    "offset": offset,
+                }
+            )
+            i += 1
+
+        question = utils.get_question(question_uuid)
+        if not question:
+            return jsonify(message="Question not found"), 404
+        question["answer_data"] = answer_cards
+        db.set(question_uuid, json.dumps(question))
+
+        return (
+            jsonify(
+                {
+                    "question_uuid": question_uuid,
+                    "n_cards": n_cards,
+                    "service_type": SERVICE_NAME,
+                }
+            ),
+            200,
+        )
+    except Exception as e:
+        return f"{e}", 500
+
+
 @app.route(r"/divided-data", methods=["POST"])
 @cross_origin()
 def createDividedData():
@@ -73,10 +119,12 @@ def createDividedData():
         payload = request.get_json()
         team_id = payload["team_id"]
         question_uuid = payload["question_uuid"]
-        n_divided = int(payload["n_divided"])
+        n_divided = int(payload["n_divided"]) or 0
+        if n_divided < 2 or n_divided > 5:
+            raise Exception("Number of divided data required >= 2 and <= 5")
+
         question = utils.get_question(question_uuid)
         problem_audio = utils.overlap_cards(question["answer_data"])
-
         max_dur = len(problem_audio)
         i = n_divided - 1
         cur_dur = 0
@@ -89,16 +137,16 @@ def createDividedData():
                     MIN_DIVIDED_TIME, max_dur - cur_dur - MIN_DIVIDED_TIME * i
                 )
             )
-            segments.append({
-                "index": i,
-                "duration": dur
-            })
+            segments.append({"index": i, "duration": dur})
             cur_dur += dur
             i -= 1
 
         answer = utils.get_answer(question_uuid + str(team_id))
-        answer["divided_data"] = segments
-        db.set(answer["answer_uuid"], json.dumps(answer))
+        if not answer.get("divided_data"):
+            answer["divided_data"] = segments
+            db.set(answer["answer_uuid"], json.dumps(answer))
+        elif len(answer["divided_data"]) >= len(segments):
+            segments = answer["divided_data"]
 
         return jsonify(segments), 200
     except Exception as e:
@@ -166,7 +214,8 @@ def get_audio_data():
                 ]
             )
             segments = AudioService.seperate_audio(
-                sound, [item["duration"] for item in answer["divided_data"]])
+                sound, [item["duration"] for item in answer["divided_data"]]
+            )
             audio_data = segments[index]
 
         if not audio_data:

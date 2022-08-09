@@ -37,7 +37,7 @@ def change_score(team_cards, team_id, question_uuid):
     question = get_question(question_uuid)
     answer = get_answer(question_uuid + str(team_id))
     answer_cards = [data["card"] for data in question["answer_data"]]
-    print(answer_cards)
+    print("answer", answer_cards)
     for card in team_cards:
         if not card in AUDIO_CARDS:
             raise Exception("Card {} not exist in cards list".format(card))
@@ -49,13 +49,13 @@ def change_score(team_cards, team_id, question_uuid):
     score_data = answer.get("score_data")
     correct, changed = get_score(team_cards, answer_cards, score_data)
     problem_audio = overlap_cards(question["answer_data"])
-    team_audio = overlap_cards(
-        [{"card": card, "offset": 0} for card in team_cards])
+    team_audio = overlap_cards([{"card": card, "offset": 0} for card in team_cards])
 
     score_data = {
         "correct": correct,
         "changed": changed,
         "card_selected": team_cards,
+        "card_answer": answer_cards,
         "mse": get_mse(team_audio, problem_audio),
     }
 
@@ -68,8 +68,7 @@ def change_score(team_cards, team_id, question_uuid):
 def overlap_cards(cards):
     return AudioService.overlap_audio(
         [
-            {"audio": AudioService.get_audio(
-                data["card"]), "offset": data["offset"]}
+            {"audio": AudioService.get_audio(data["card"]), "offset": data["offset"]}
             for data in cards
         ]
     )
@@ -95,7 +94,6 @@ def get_mse(st_audio, nd_audio):
     st_sample = st_audio.get_array_of_samples()
     nd_sample = nd_audio.get_array_of_samples()
     min_sample = min(len(st_sample), len(nd_sample))
-    print(min_sample)
     mse = 0
     for i in range(min_sample):
         mse += (st_sample[i] - nd_sample[i]) ** 2
