@@ -29,7 +29,7 @@ def createProblemData():
         selected_cards = []
         i = 0
         while i < n_cards:
-            card = utils.get_random_card(selected_cards)
+            card = AudioService.get_random_card(selected_cards)
             offset = random.randint(0, MAX_OFFSET_SAMPLE)
             answer_cards.append({"card": card, "offset": offset})
             selected_cards.append(card)
@@ -80,7 +80,7 @@ def updateProblemData():
         selected_cards = []
         i = 0
         while i < n_cards:
-            card = utils.get_random_card(selected_cards)
+            card = AudioService.get_random_card(selected_cards)
             offset = random.randint(0, MAX_OFFSET_SAMPLE)
             answer_cards.append({"card": card, "offset": offset})
             selected_cards.append(card)

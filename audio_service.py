@@ -1,8 +1,27 @@
 from pydub import AudioSegment
 import base64
+import random
+from os import walk
+
 
 RESOURCE_PATH = "resource/procon_audio/JKspeech"
 SAMPLE_RATE = 48000
+
+
+def get_card_list():
+    filenames = next(walk(RESOURCE_PATH), (None, None, []))[2]
+    return [file[:-4] for file in filenames]
+
+
+AUDIO_CARDS = get_card_list()
+
+
+def get_random_card(selected_list):
+    card = random.choice(AUDIO_CARDS)
+    if card in selected_list:
+        card = get_random_card(selected_list)
+
+    return card
 
 
 def get_audio(file_name, dir="resource"):

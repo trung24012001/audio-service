@@ -1,19 +1,6 @@
-import random
 import json
 from database import db
 import audio_service as AudioService
-
-
-def get_card_list():
-    cards = []
-    for n in range(1, 45):
-        serial = ("0" + str(n)) if n <= 9 else str(n)
-        cards.append("E" + serial)
-        cards.append("J" + serial)
-    return cards
-
-
-AUDIO_CARDS = get_card_list()
 
 
 def get_answer(answer_uuid):
@@ -39,7 +26,7 @@ def change_score(team_cards, team_id, question_uuid):
     answer_cards = [data["card"] for data in question["answer_data"]]
     print("answer", answer_cards)
     for card in team_cards:
-        if not card in AUDIO_CARDS:
+        if not card in AudioService.AUDIO_CARDS:
             raise Exception("Card {} not exist in cards list".format(card))
     if len(team_cards) != len(answer_cards):
         raise Exception(
@@ -49,7 +36,8 @@ def change_score(team_cards, team_id, question_uuid):
     score_data = answer.get("score_data")
     correct, changed = get_score(team_cards, answer_cards, score_data)
     problem_audio = overlap_cards(question["answer_data"])
-    team_audio = overlap_cards([{"card": card, "offset": 0} for card in team_cards])
+    team_audio = overlap_cards(
+        [{"card": card, "offset": 0} for card in team_cards])
 
     score_data = {
         "correct": correct,
@@ -68,7 +56,8 @@ def change_score(team_cards, team_id, question_uuid):
 def overlap_cards(cards):
     return AudioService.overlap_audio(
         [
-            {"audio": AudioService.get_audio(data["card"]), "offset": data["offset"]}
+            {"audio": AudioService.get_audio(
+                data["card"]), "offset": data["offset"]}
             for data in cards
         ]
     )
@@ -98,11 +87,3 @@ def get_mse(st_audio, nd_audio):
     for i in range(min_sample):
         mse += (st_sample[i] - nd_sample[i]) ** 2
     return mse / min_sample
-
-
-def get_random_card(selected_list):
-    card = random.choice(AUDIO_CARDS)
-    if card in selected_list:
-        card = get_random_card(selected_list)
-
-    return card
