@@ -76,5 +76,15 @@ def overlap_audio(sounds):
     return problem
 
 
+def get_mse(st_audio, nd_audio):
+    st_sample = st_audio.get_array_of_samples()
+    nd_sample = nd_audio.get_array_of_samples()
+    min_sample = min(len(st_sample), len(nd_sample))
+    mse = 0
+    for i in range(min_sample):
+        mse += (st_sample[i] - nd_sample[i]) ** 2
+    return mse / min_sample
+
+
 def to_base64(sound):
     return base64.b64encode(sound.raw_data).decode("utf-8")

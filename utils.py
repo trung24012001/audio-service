@@ -4,13 +4,12 @@ import audio_service as AudioService
 
 
 def get_answer(answer_uuid):
-    answer = db.get(answer_uuid)
-    if not answer:
+    if not db.get(answer_uuid):
         db.set(
             answer_uuid,
             json.dumps({"answer_uuid": answer_uuid}),
         )
-    return json.loads(answer)
+    return json.loads(db.get(answer_uuid))
 
 
 def get_question(question_uuid):
@@ -36,15 +35,13 @@ def change_score(team_cards, team_id, question_uuid):
     score_data = answer.get("score_data")
     correct, changed = get_score(team_cards, answer_cards, score_data)
     problem_audio = overlap_cards(question["answer_data"])
-    team_audio = overlap_cards(
-        [{"card": card, "offset": 0} for card in team_cards])
-
+    team_audio = overlap_cards([{"card": card, "offset": 0} for card in team_cards])
     score_data = {
         "correct": correct,
         "changed": changed,
         "card_selected": team_cards,
-        "card_answer": answer_cards,
-        "mse": get_mse(team_audio, problem_audio),
+        # "card_answer": answer_cards,
+        "mse": AudioService.get_mse(team_audio, problem_audio),
     }
 
     answer["score_data"] = score_data
@@ -56,9 +53,8 @@ def change_score(team_cards, team_id, question_uuid):
 def overlap_cards(cards):
     return AudioService.overlap_audio(
         [
-            {"audio": AudioService.get_audio(
-                data["card"]), "offset": data["offset"]}
-            for data in cards
+            {"audio": AudioService.get_audio(data["card"]), "offset": data["offset"]}
+            for data in cards or []
         ]
     )
 
@@ -73,17 +69,9 @@ def get_score(team_cards, answer_cards, score_data):
         pre_selected = score_data["card_selected"]
 
         for i in range(len(team_cards)):
+            if i >= len(pre_selected):
+                continue
             if team_cards[i] != pre_selected[i]:
                 changed += 1
 
     return correct, changed
-
-
-def get_mse(st_audio, nd_audio):
-    st_sample = st_audio.get_array_of_samples()
-    nd_sample = nd_audio.get_array_of_samples()
-    min_sample = min(len(st_sample), len(nd_sample))
-    mse = 0
-    for i in range(min_sample):
-        mse += (st_sample[i] - nd_sample[i]) ** 2
-    return mse / min_sample

@@ -9,10 +9,13 @@ def test_format():
     print("Format test successfully")
 
 
+test_format()
+
+
 def test_divided_data():
-    problem = AudioSegment.from_wav("output/problem_file.wav")
+    problem = AudioSegment.from_wav("output/audio.wav")
     segments = service.seperate_audio(
-        problem, durations=[24000, 24000, 24000, 24000, 58996]
+        sound=problem, durations=[24000, 24000, 24000, 24000, 58996]
     )
     for i in range(len(segments)):
         segments[i].export("output/segment_{}.wav".format(i), format="wav")
@@ -20,11 +23,9 @@ def test_divided_data():
 
 
 data = [
-    {"card": "J01", "offset": 4800},
-    {"card": "E02", "offset": 9600},
-    {"card": "J03", "offset": 4800},
-    {"card": "E04", "offset": 9600},
-    {"card": "J05", "offset": 4800},
+    {"card": "E01", "offset": 0},
+    {"card": "E02", "offset": 0},
+    {"card": "E03", "offset": 0},
 ]
 
 
@@ -39,14 +40,6 @@ def test_problem_data():
     print("Problem data test successfully")
 
 
-# def testDb():
-#     db = pickledb.load('db/database.db', True)
-#     db.set('lala', 'agag')
-
-
-# testDb()
-
-# test_format()
-# test_divided_data()
-test_problem_data()
-# test()
+def testDb():
+    db = pickledb.load("db/database.db", True)
+    db.set("lala", "agag")

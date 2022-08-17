@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS, cross_origin
 import audio_service as AudioService
 import random
@@ -11,7 +11,7 @@ app = Flask(__name__)
 cors = CORS(app)
 
 SERVICE_NAME = "PYTHON_AUDIO_SERVICE"
-MAX_OFFSET_SAMPLE = 0.25 * AudioService.SAMPLE_RATE
+MAX_OFFSET_SAMPLE = 0.3 * AudioService.SAMPLE_RATE
 MAX_CARD = 20
 MIN_CARD = 3
 MIN_DIVIDED_TIME = 500
@@ -165,6 +165,7 @@ def createScore():
 
         return jsonify(answer), 200
     except Exception as e:
+        print(e)
         return f"{e}", 500
 
 
@@ -189,30 +190,15 @@ def get_audio_data():
         elif type == "question":
             question_uuid = request.args.get("question_uuid")
             question = utils.get_question(question_uuid)
-            audio_data = AudioService.overlap_audio(
-                [
-                    {
-                        "audio": AudioService.get_audio(data["card"]),
-                        "offset": data["offset"],
-                    }
-                    for data in question.get("answer_data") or []
-                ]
-            )
+            audio_data = utils.overlap_cards(question.get("answer_data"))
+
         elif type == "divided":
             index = int(request.args.get("index"))
             team_id = request.args.get("team_id")
             question_uuid = request.args.get("question_uuid")
             answer = utils.get_answer(question_uuid + str(team_id))
             question = utils.get_question(question_uuid)
-            sound = AudioService.overlap_audio(
-                [
-                    {
-                        "audio": AudioService.get_audio(data["card"]),
-                        "offset": data["offset"],
-                    }
-                    for data in question.get("answer_data") or []
-                ]
-            )
+            sound = utils.overlap_cards(question.get("answer_data"))
             segments = AudioService.seperate_audio(
                 sound, [item["duration"] for item in answer["divided_data"]]
             )
@@ -226,6 +212,21 @@ def get_audio_data():
             attachment_filename="audio.wav",
             mimetype="audio/wav",
             as_attachment=False,
+        )
+
+    except Exception as e:
+        return f"{e}", 500
+
+
+@app.route(r"/download/resource", methods=["GET"])
+def download_resource():
+    try:
+
+        return send_from_directory(
+            directory="./resource",
+            path="procon_audio.zip",
+            attachment_filename="resource.zip",
+            as_attachment=True,
         )
 
     except Exception as e:
