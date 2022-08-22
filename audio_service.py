@@ -2,10 +2,14 @@ from pydub import AudioSegment
 import base64
 import random
 from os import walk
-
+from sklearn.metrics import mean_squared_error
+import numpy as np
+import scipy.fftpack
+from sklearn import preprocessing
 
 RESOURCE_PATH = "resource/procon_audio/JKspeech"
 SAMPLE_RATE = 48000
+MAX_OFFSET_SAMPLE = 0.3 * SAMPLE_RATE
 
 
 def get_card_list():
@@ -16,12 +20,11 @@ def get_card_list():
 AUDIO_CARDS = get_card_list()
 
 
-def get_random_card(selected_list):
-    card = random.choice(AUDIO_CARDS)
-    if card in selected_list:
-        card = get_random_card(selected_list)
-
-    return card
+def get_random_cards(n_cards):
+    cards = random.choices(AUDIO_CARDS, k=n_cards)
+    return [
+        {"card": card, "offset": random.randint(0, MAX_OFFSET_SAMPLE)} for card in cards
+    ]
 
 
 def get_audio(file_name, dir="resource"):
@@ -76,14 +79,18 @@ def overlap_audio(sounds):
     return problem
 
 
-def get_mse(st_audio, nd_audio):
+def get_mse(st_audio, nd_audio, dct=False):
     st_sample = st_audio.get_array_of_samples()
     nd_sample = nd_audio.get_array_of_samples()
-    min_sample = min(len(st_sample), len(nd_sample))
-    mse = 0
-    for i in range(min_sample):
-        mse += (st_sample[i] - nd_sample[i]) ** 2
-    return mse / min_sample
+    st_res, nd_res = None, None
+    if dct:
+        st_res = np.abs(scipy.fftpack.fft(st_sample))
+        nd_res = np.abs(scipy.fftpack.fft(nd_sample))
+    else:
+        st_res = preprocessing.normalize([st_sample])[0]
+        nd_res = preprocessing.normalize([nd_sample])[0]
+    min_sample = min(len(st_res), len(nd_res))
+    return mean_squared_error(st_res[:min_sample], nd_res[:min_sample]) * 1e6
 
 
 def to_base64(sound):

@@ -24,23 +24,7 @@ def createProblemData():
         n_cards = request.args.get("n_cards", default=0, type=int)
         if n_cards < MIN_CARD or n_cards > MAX_CARD:
             n_cards = random.randint(MIN_CARD, MAX_CARD)
-        sounds = []
-        answer_cards = []
-        selected_cards = []
-        i = 0
-        while i < n_cards:
-            card = AudioService.get_random_card(selected_cards)
-            offset = random.randint(0, MAX_OFFSET_SAMPLE)
-            answer_cards.append({"card": card, "offset": offset})
-            selected_cards.append(card)
-            sounds.append(
-                {
-                    "audio": AudioService.get_audio(card),
-                    "offset": offset,
-                }
-            )
-            i += 1
-
+        answer_cards = AudioService.get_random_cards(n_cards)
         uid = str(uuid.uuid4())
         db.set(
             uid,
@@ -75,22 +59,7 @@ def updateProblemData():
         question_uuid = payload["question_uuid"]
         if n_cards < MIN_CARD or n_cards > MAX_CARD:
             n_cards = random.randint(MIN_CARD, MAX_CARD)
-        sounds = []
-        answer_cards = []
-        selected_cards = []
-        i = 0
-        while i < n_cards:
-            card = AudioService.get_random_card(selected_cards)
-            offset = random.randint(0, MAX_OFFSET_SAMPLE)
-            answer_cards.append({"card": card, "offset": offset})
-            selected_cards.append(card)
-            sounds.append(
-                {
-                    "audio": AudioService.get_audio(card),
-                    "offset": offset,
-                }
-            )
-            i += 1
+        answer_cards = AudioService.get_random_cards(n_cards)
 
         question = utils.get_question(question_uuid)
         if not question:
@@ -229,6 +198,18 @@ def download_resource():
             as_attachment=True,
         )
 
+    except Exception as e:
+        return f"{e}", 500
+
+
+@app.route(r"/download/resource/<path:filename>", methods=["GET"])
+def download_file(filename):
+    try:
+        return send_from_directory(
+            directory=AudioService.RESOURCE_PATH,
+            path=filename,
+            as_attachment=False,
+        )
     except Exception as e:
         return f"{e}", 500
 

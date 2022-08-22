@@ -4,12 +4,10 @@ import pickledb
 
 
 def test_format():
-    sound = service.get_audio("E05")
-    print(sound.sample_width, sound.frame_rate, sound.channels, len(sound))
+    sound1 = service.get_audio("E05")
+    sound2 = service.get_audio("E06")
+    print(len(sound1.get_array_of_samples()))
     print("Format test successfully")
-
-
-test_format()
 
 
 def test_divided_data():
@@ -23,9 +21,9 @@ def test_divided_data():
 
 
 data = [
-    {"card": "E01", "offset": 0},
-    {"card": "E02", "offset": 0},
-    {"card": "E03", "offset": 0},
+    {"card": "E01", "offset": 4800},
+    {"card": "E02", "offset": 9600},
+    {"card": "E03", "offset": 4800},
 ]
 
 
@@ -38,6 +36,9 @@ def test_problem_data():
     problem = service.overlap_audio(sounds)
     problem.export("output/problem_file.wav", format="wav")
     print("Problem data test successfully")
+
+
+test_problem_data()
 
 
 def testDb():
