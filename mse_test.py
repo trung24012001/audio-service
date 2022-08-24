@@ -40,7 +40,7 @@ from cvxopt import matrix
 # sol = solvers.qp(Q, p, G, h, A, b)
 # print(sol["x"])
 # from cvxopt import normal
-from cvxopt.modeling import variable, op, max, sum
+# from cvxopt.modeling import variable, op, max, sum
 
 # import pylab
 
@@ -58,3 +58,18 @@ from cvxopt.modeling import variable, op, max, sum
 
 # x3 = variable(n)
 # op(sum(max(0, abs(A * x3 - b) - 0.75, 2 * abs(A * x3 - b) - 2.25))).solve()
+
+from cvxopt import matrix, solvers
+import numpy as np
+
+Q = 2 * matrix(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype="float"))
+p = matrix(np.array([0.0, 0.0, 0.0], dtype="float"))
+# G = matrix([[-1.0, 0.0], [0.0, -1.0]])
+# h = matrix([0.0, 0.0])
+A = matrix(np.array([[1, 2, 8], [2, 3, 7], [3, 5, 3]], dtype="float"), (3, 3))
+b = matrix(np.array([5, 6, 8], dtype="float"))
+sol = solvers.qp(P=Q, q=p, A=A, b=b)
+print(sol)
+print(sol["x"])
+print(sol["y"])
+print(sol["z"])
