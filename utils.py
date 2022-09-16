@@ -28,9 +28,7 @@ def change_score(team_cards, team_id, question_uuid):
         if not card in AudioService.AUDIO_CARDS:
             raise Exception("Card {} not exist in cards list".format(card))
     if len(team_cards) != len(answer_cards):
-        raise Exception(
-            "Number of cards answer must be equal number of cards that generate problem data"
-        )
+        raise Exception("Number of cards invalid")
 
     score_data = answer.get("score_data")
     correct, changed = get_score(team_cards, answer_cards, score_data)

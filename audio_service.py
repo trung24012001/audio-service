@@ -84,8 +84,8 @@ def get_mse(st_audio, nd_audio, dct=False):
     nd_sample = nd_audio.get_array_of_samples()
     st_res, nd_res = None, None
     if dct:
-        st_res = np.abs(scipy.fftpack.fft(st_sample))
-        nd_res = np.abs(scipy.fftpack.fft(nd_sample))
+        st_res = scipy.fftpack.dct(st_sample)
+        nd_res = scipy.fftpack.dct(nd_sample)
     else:
         st_res = preprocessing.normalize([st_sample])[0]
         nd_res = preprocessing.normalize([nd_sample])[0]
