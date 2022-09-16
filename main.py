@@ -1,3 +1,4 @@
+import traceback
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS, cross_origin
 import audio_service as AudioService
@@ -47,6 +48,7 @@ def createProblemData():
             200,
         )
     except Exception as e:
+        traceback.print_exc()
         return f"{e}", 500
 
 
