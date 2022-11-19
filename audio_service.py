@@ -81,7 +81,6 @@ def overlap_audio(sounds):
 def get_mse(st_audio, nd_audio, dct=False):
     st_sample = st_audio.get_array_of_samples()
     nd_sample = nd_audio.get_array_of_samples()
-    st_res, nd_res = None, None
     ns = min(len(st_sample), len(nd_sample))
     if dct:
         st_res = scipy.fftpack.dct(st_sample[:ns])
