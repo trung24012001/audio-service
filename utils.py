@@ -71,25 +71,6 @@ def get_score(team_cards, answer_cards, score_data):
             if changed[i] == True:
                 continue
             if team_cards[i] != pre_selected[i]:
-                changed = True
-
-    return correct, changed
-
-
-def get_score(team_cards, answer_cards, score_data):
-    correct = 0
-    changed = [False] * len(answer_cards)
-    for card in answer_cards:
-        if card in team_cards:
-            correct += 1
-    if score_data:
-        changed = score_data["changed"]
-        pre_selected = score_data["card_selected"]
-
-        for i in range(len(team_cards)):
-            if changed[i] == True:
-                continue
-            if team_cards[i] != pre_selected[i]:
                 changed[i] = True
 
     return correct, changed
