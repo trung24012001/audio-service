@@ -81,7 +81,39 @@ def updateProblemData():
         )
     except Exception as e:
         return f"{e}", 500
+#### TUNG ADDED ######
+def doCreateDividedData(question):
+    #question = utils.get_question(question_uuid)
+    n_parts = question.get('n_parts')
+    if n_parts is None:
+        question.n_parts = 2
+        n_parts = 2
 
+    if n_parts < 2 or n_parts > 5:
+        raise Exception("Number of divided data require >= 2 and <= 5")
+
+    problem_audio = utils.overlap_cards(question['answer_data'])
+
+    max_dur = len(problem_audio)
+    i = n_parts - 1
+    cur_dur = 0
+    segments = []
+    while i >= 0:
+        dur = (
+            max_dur - cur_dur
+            if i == 0
+            else random.randint(
+                MIN_DIVIDED_TIME, max_dur - cur_dur - MIN_DIVIDED_TIME * i
+            )
+        )
+        segments.append({
+            "index": i, "duration": dur
+        })
+        cur_dur += dur
+        i -= 1
+    question['divided_data'] = segments
+    db.set(question["question_uuid"], json.dumps(question))
+    return segments, problem_audio
 
 @app.route(r"/divided-data", methods=["POST"])
 @cross_origin()
@@ -163,6 +195,7 @@ def get_audio_data():
             audio_data = utils.overlap_cards(question.get("answer_data"))
 
         elif type == "divided":
+            '''
             index = int(request.args.get("index"))
             team_id = request.args.get("team_id")
             question_uuid = request.args.get("question_uuid")
@@ -173,6 +206,39 @@ def get_audio_data():
                 sound, [item["duration"] for item in answer["divided_data"]]
             )
             audio_data = segments[index]
+            '''
+            team_id = request.args.get("team_id")
+            question_uuid = request.args.get('question_uuid')
+            question = utils.get_question(question_uuid)
+            answer_uuid = question_uuid + str(team_id)
+            answer = utils.get_answer(answer_uuid)
+            received_ids = answer.get('received_ids') or []
+            segments = question.get("divided_data")
+            problem_audio = None
+
+            if segments is None:
+                segments, problem_audio = doCreateDividedData(question)
+            else:
+                problem_audio = utils.overlap_cards(question.get("answer_data"))
+
+            segments.sort(key=lambda s: s['index'])
+            valid_segments = list(
+                filter(lambda uid: uid["index"] not in received_ids, segments)
+            )
+            n_left = len(valid_segments)
+            if n_left == 0:
+                return jsonify("All divided data segments sent"), 404
+
+            selected_index = random.randint(0, n_left)
+            selected_index = segments[selected_index]['index']
+            audio_segments = AudioService.seperate_audio(
+                problem_audio, [item["duration"] for item in answer["divided_data"]]
+            )
+            audio_data = audio_segments[selected_index]
+            received_ids.append(selected_index)
+            answer['received_ids'] = received_ids
+            db.set(answer_uuid, json.dumps(answer))
+
 
         if not audio_data:
             return jsonify("No data"), 404

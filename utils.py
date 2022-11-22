@@ -51,8 +51,7 @@ def change_score(team_cards, team_id, question_uuid):
 def overlap_cards(cards):
     return AudioService.overlap_audio(
         [
-            {"audio": AudioService.get_audio(data["card"]), "offset": data["offset"]}
-            for data in cards or []
+            {"audio": AudioService.get_audio(card["card"]), "offset": card["offset"]} for card in cards or []
         ]
     )
 
