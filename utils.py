@@ -22,6 +22,8 @@ def get_question(question_uuid):
 #### TUNG ADDED ######
 def evaluate(question_data, score_data):
   print(question_data)
+  print("--- Score data ---")
+  print(score_data)
   # final_bonus_factor = question_data.get("bonus_factor", 1.) * question_data.get('n_parts', 2)*1.0 / score_data.get("parts_needed")
   final_bonus_factor = round((1.0 - score_data.get("parts_needed")*1.0 / question_data.get('n_parts', 2)) * question_data.get("bonus_factor", 1.), 2)
   penalties = round(question_data.get("penalty_per_change", 2) * score_data.get('changed'))
@@ -35,6 +37,7 @@ def change_score(team_cards, team_id, question_uuid):
     answer = get_answer(question_uuid + str(team_id))
     answer_cards = [data["card"] for data in question["answer_data"]]
     print("answer", answer_cards)
+    print(answer)
     for card in team_cards:
         if not card in AudioService.AUDIO_CARDS:
             raise Exception("Card {} not exist in cards list".format(card))
@@ -45,7 +48,7 @@ def change_score(team_cards, team_id, question_uuid):
     correct, changed = get_score(team_cards, answer_cards, score_data)
     problem_audio = overlap_cards(question["answer_data"])
     team_audio = overlap_cards([{"card": card, "offset": 0} for card in team_cards])
-    answer["score_data"] = {
+    score_data = {
         "correct": correct,
         "changed": changed,
         "card_selected": team_cards,
@@ -73,8 +76,8 @@ def overlap_cards(cards):
 
 
 def get_score(team_cards, answer_cards, score_data):
-    correct = 0
-    changed = [False] * len(answer_cards)
+    correct, changed = 0, 0
+    #changed = [False] * len(answer_cards)
     for card in answer_cards:
         if card in team_cards:
             correct += 1
