@@ -12,9 +12,10 @@ app = Flask(__name__)
 cors = CORS(app)
 
 SERVICE_NAME = "PYTHON_AUDIO_SERVICE"
-MAX_OFFSET_SAMPLE = 0.3 * AudioService.SAMPLE_RATE
 MAX_CARD = 20
 MIN_CARD = 3
+MIN_DIVIDED = 2
+MAX_DIVIDED = 5
 MIN_DIVIDED_TIME = 500
 
 
@@ -154,6 +155,7 @@ def createDividedData():
         payload = request.get_json()
         team_id = payload["team_id"]
         question_uuid = payload["question_uuid"]
+#<<<<<<< HEAD
         new = payload.get("new") or False
 
         question = utils.get_question(question_uuid)
@@ -185,6 +187,24 @@ def createDividedData():
         __res = db.set(answer_uuid, json.dumps(answer))
         print(__res)
         return jsonify([ segments[i]['uuid'] for i in received_ids ]), 200
+#=======
+#        n_divided = int(payload["n_divided"]) or 0
+#        if n_divided < MIN_DIVIDED or n_divided > MAX_DIVIDED:
+#            raise Exception(
+#                "Number of divided data required >= {} and <= {}".format(
+#                    MIN_DIVIDED, MAX_DIVIDED
+#                )
+#            )
+#
+#        question = utils.get_question(question_uuid)
+#        problem_audio = utils.overlap_cards(question["answer_data"])
+#        segments = utils.get_divided_data(problem_audio, n_divided, MIN_DIVIDED_TIME)
+#        answer = utils.get_answer(question_uuid + str(team_id))
+#        answer["divided_data"] = segments
+#        db.set(answer["answer_uuid"], json.dumps(answer))
+#
+#        return jsonify(len(segments)), 200
+#>>>>>>> 77f959de28cdd59d617a3478ff554fde22c90542
     except Exception as e:
         traceback.print_exc();
         return f"{e}", 500
@@ -237,11 +257,14 @@ def get_audio_data():
             answer = utils.get_answer(question_uuid + str(team_id))
             question = utils.get_question(question_uuid)
             sound = utils.overlap_cards(question.get("answer_data"))
+            durs = sorted(answer["divided_data"], key=lambda x: x["position"])
             segments = AudioService.seperate_audio(
-                sound, [item["duration"] for item in answer["divided_data"]]
+                sound,
+                [item["duration"] for item in durs],
             )
             audio_data = segments[index]
             '''
+#<<<<<<< HEAD
             team_id = request.args.get("team_id")
             segment_uuid = request.args.get("uuid")
             question_uuid = request.args.get('question_uuid')
@@ -274,6 +297,11 @@ def get_audio_data():
             print(selected_index)
             print(segments)
             audio_data = audio_segments[selected_index]
+#=======
+#            for dur in durs:
+#                if dur["index"] == index:
+#                    audio_data = segments[dur["position"]]
+#>>>>>>> 77f959de28cdd59d617a3478ff554fde22c90542
 
         if not audio_data:
             return jsonify("No data"), 404
