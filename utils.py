@@ -18,6 +18,16 @@ def get_question(question_uuid):
         return None
     return json.loads(question)
 
+#### TUNG ADDED ######
+def evaluate(question_data, score_data):
+  print(question_data)
+  # final_bonus_factor = question_data.get("bonus_factor", 1.) * question_data.get('n_parts', 2)*1.0 / score_data.get("parts_needed")
+  final_bonus_factor = round((1.0 - score_data.get("parts_needed")*1.0 / question_data.get('n_parts', 2)) * question_data.get("bonus_factor", 1.), 2)
+  penalties = round(question_data.get("penalty_per_change", 2) * score_data.get('changed'))
+  raw_score = question_data.get("point_per_correct", 10) * score_data.get('correct')
+  final_score = round((raw_score - penalties) * (1.0 + final_bonus_factor), 2)
+  max_score = round(question_data.get("point_per_correct", 10)*len(question_data.get("answer_data"))*(1.0 + question_data.get("bonus_factor", 1.)*(1.0 - 1.0/question_data.get("n_parts", 2))), 2)
+  score_data["score"] = dict(final_bonus_factor=final_bonus_factor, penalties=penalties, raw_score=raw_score, final_score=final_score, max_score=max_score)
 
 def change_score(team_cards, team_id, question_uuid):
     question = get_question(question_uuid)
@@ -40,8 +50,9 @@ def change_score(team_cards, team_id, question_uuid):
         "card_selected": team_cards,
         # "card_answer": answer_cards,
         "mse": AudioService.get_mse(team_audio, problem_audio),
+        "parts_needed": len(answer["received_ids"])
     }
-
+    evaluate(question, score_data)
     answer["score_data"] = score_data
     db.set(answer["answer_uuid"], json.dumps(answer))
 
@@ -64,11 +75,8 @@ def get_score(team_cards, answer_cards, score_data):
     if score_data:
         changed = score_data["changed"]
         pre_selected = score_data["card_selected"]
-
-        for i in range(len(team_cards)):
-            if i >= len(pre_selected):
-                continue
-            if team_cards[i] != pre_selected[i]:
+        for card in team_cards:
+            if card not in pre_selected:
                 changed += 1
 
     return correct, changed

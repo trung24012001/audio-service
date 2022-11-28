@@ -23,30 +23,34 @@ MIN_DIVIDED_TIME = 500
 def createProblemData():
     try:
         n_cards = request.args.get("n_cards", default=0, type=int)
+        n_parts = request.args.get("n_parts", default=2, type=int)
+        bonus_factor = request.args.get("bonus_factor", default=1., type=float)
+        penalty_per_change = request.args.get("penalty_per_change", default=2., type=float)
+        point_per_correct = request.args.get('point_per_correct', default=10, type=int)
+
         if n_cards < MIN_CARD or n_cards > MAX_CARD:
             n_cards = random.randint(MIN_CARD, MAX_CARD)
         answer_cards = AudioService.get_random_cards(n_cards)
         uid = str(uuid.uuid4())
-        db.set(
-            uid,
-            json.dumps(
-                {
-                    "question_uuid": uid,
-                    "answer_data": answer_cards,
-                }
-            ),
-        )
 
-        return (
-            jsonify(
-                {
-                    "question_uuid": uid,
-                    "n_cards": n_cards,
-                    "service_type": SERVICE_NAME,
-                }
-            ),
-            200,
-        )
+        question = {
+          "question_uuid": uid,
+          "answer_data": answer_cards,
+          "n_parts": n_parts,
+          "bonus_factor": bonus_factor,
+          "penalty_per_change": penalty_per_change,
+          "point_per_correct": point_per_correct
+        }
+
+        db.set(uid, json.dumps(question))
+        question['n_cards'] = len(question['answer_data'])
+        try:
+          del question['answer_data']
+          del question['divided_data']
+        except:
+          pass
+
+        return jsonify(question), 200
     except Exception as e:
         traceback.print_exc()
         return f"{e}", 500
@@ -58,6 +62,7 @@ def updateProblemData():
     try:
         payload = request.get_json()
         n_cards = payload["n_cards"]
+
         question_uuid = payload["question_uuid"]
         if n_cards < MIN_CARD or n_cards > MAX_CARD:
             n_cards = random.randint(MIN_CARD, MAX_CARD)
@@ -66,28 +71,41 @@ def updateProblemData():
         question = utils.get_question(question_uuid)
         if not question:
             return jsonify(message="Question not found"), 404
+
+        n_parts = request.args.get("n_parts") or question.get('n_parts', 2)
+        bonus_factor = request.args.get("bonus_factor") or question.get('bonus_factor', 1.0)
+        penalty_per_change = request.args.get("penalty_per_change") or question.get('penalty_per_change', 2.0)
+        point_per_correct = request.args.get('point_per_correct') or question.get('point_per_correct', 10)
+
         question["answer_data"] = answer_cards
+        question["n_parts"] = n_parts
+        question["bonus_factor"] = bonus_factor
+        question["penalty_per_change"] = penalty_per_change
+        question["point_per_correct"] = point_per_correct
         db.set(question_uuid, json.dumps(question))
 
-        return (
-            jsonify(
-                {
-                    "question_uuid": question_uuid,
-                    "n_cards": n_cards,
-                    "service_type": SERVICE_NAME,
-                }
-            ),
-            200,
-        )
+        question['n_cards'] = len(question['answer_data'])
+        try:
+          del question['answer_data']
+          del question['divided_data']
+        except:
+          pass
+        return jsonify(question), 200
     except Exception as e:
+        traceback.print_exc()
         return f"{e}", 500
+
 #### TUNG ADDED ######
 def doCreateDividedData(question):
     #question = utils.get_question(question_uuid)
+    print("doCreateDividedData")
     n_parts = question.get('n_parts')
+    print("doCreateDividedData", n_parts)
     if n_parts is None:
-        question.n_parts = 2
+        question["n_parts"] = 2
         n_parts = 2
+
+    print("doCreateDividedData", n_parts)
 
     if n_parts < 2 or n_parts > 5:
         raise Exception("Number of divided data require >= 2 and <= 5")
@@ -95,26 +113,40 @@ def doCreateDividedData(question):
     problem_audio = utils.overlap_cards(question['answer_data'])
 
     max_dur = len(problem_audio)
+    segment_dur = int(max_dur / n_parts)
+    if segment_dur < MIN_DIVIDED_TIME:
+        raise Exception("Segment duration is less than 0.5 seconds")
+
     i = n_parts - 1
     cur_dur = 0
     segments = []
     while i >= 0:
-        dur = (
-            max_dur - cur_dur
-            if i == 0
-            else random.randint(
-                MIN_DIVIDED_TIME, max_dur - cur_dur - MIN_DIVIDED_TIME * i
-            )
-        )
+        dur = (max_dur - cur_dur) if i == 0 else segment_dur
+        
         segments.append({
-            "index": i, "duration": dur
+            "index": i, "duration": dur, "uuid": str(uuid.uuid4())
         })
         cur_dur += dur
         i -= 1
+
+    print(segments)
     question['divided_data'] = segments
     db.set(question["question_uuid"], json.dumps(question))
     return segments, problem_audio
 
+@app.route(r"/reset_answer", methods=["GET"])
+@cross_origin()
+def reset_answer():
+    try:
+        team_id = request.args.get("team_id")
+        question_uuid = request.args.get("question_uuid")
+        answer_uuid = question_uuid + str(team_id)
+        db.set(answer_uuid, json.dumps({"answer_uuid": answer_uuid}))
+        return "Ok", 200
+    except Exception as e:
+        traceback.print_exc()
+        return f"{e}", 500
+########### TUNG Modified ##########
 @app.route(r"/divided-data", methods=["POST"])
 @cross_origin()
 def createDividedData():
@@ -122,37 +154,39 @@ def createDividedData():
         payload = request.get_json()
         team_id = payload["team_id"]
         question_uuid = payload["question_uuid"]
-        n_divided = int(payload["n_divided"]) or 0
-        if n_divided < 2 or n_divided > 5:
-            raise Exception("Number of divided data required >= 2 and <= 5")
+        new = payload.get("new") or False
 
         question = utils.get_question(question_uuid)
-        problem_audio = utils.overlap_cards(question["answer_data"])
-        max_dur = len(problem_audio)
-        i = n_divided - 1
-        cur_dur = 0
-        segments = []
-        while i >= 0:
-            dur = (
-                max_dur - cur_dur
-                if i == 0
-                else random.randint(
-                    MIN_DIVIDED_TIME, max_dur - cur_dur - MIN_DIVIDED_TIME * i
-                )
-            )
-            segments.append({"index": i, "duration": dur})
-            cur_dur += dur
-            i -= 1
+        answer_uuid = question_uuid + str(team_id)
+        answer = utils.get_answer(answer_uuid)
+        received_ids = answer.get('received_ids') or []
+        segments = question.get("divided_data")
+        if segments is None:
+            segments, _ = doCreateDividedData(question)
 
-        answer = utils.get_answer(question_uuid + str(team_id))
-        if not answer.get("divided_data"):
-            answer["divided_data"] = segments
-            db.set(answer["answer_uuid"], json.dumps(answer))
-        elif len(answer["divided_data"]) >= len(segments):
-            segments = answer["divided_data"]
+        valid_segments = list(
+            filter(lambda uid: uid["index"] not in received_ids, segments)
+        )
+        n_left = len(valid_segments)
+        if n_left == 0 or not new:
+            return jsonify([ segments[i]['uuid'] for i in received_ids ]), 200
+            #return jsonify("All divided data segments sent"), 404
 
-        return jsonify(segments), 200
+        selected_index = random.randint(0, n_left - 1)
+        print(selected_index, n_left)
+        selected_index = valid_segments[selected_index]['index']
+        print(selected_index, segments)
+        received_ids.append(selected_index)
+        answer['received_ids'] = received_ids
+        print("Before save answer")
+        print(answer)
+        print(json.dumps(answer))
+
+        __res = db.set(answer_uuid, json.dumps(answer))
+        print(__res)
+        return jsonify([ segments[i]['uuid'] for i in received_ids ]), 200
     except Exception as e:
+        traceback.print_exc();
         return f"{e}", 500
 
 
@@ -165,9 +199,10 @@ def createScore():
         team_cards = payload["answer_data"]
         question_uuid = payload["question_uuid"]
         answer = utils.change_score(team_cards, team_id, question_uuid)
-
+        answer["received_ids"] = len(answer["received_ids"])
         return jsonify(answer), 200
     except Exception as e:
+        traceback.print_exc()
         return f"{e}", 500
 
 
@@ -208,6 +243,7 @@ def get_audio_data():
             audio_data = segments[index]
             '''
             team_id = request.args.get("team_id")
+            segment_uuid = request.args.get("uuid")
             question_uuid = request.args.get('question_uuid')
             question = utils.get_question(question_uuid)
             answer_uuid = question_uuid + str(team_id)
@@ -222,23 +258,22 @@ def get_audio_data():
                 problem_audio = utils.overlap_cards(question.get("answer_data"))
 
             segments.sort(key=lambda s: s['index'])
-            valid_segments = list(
-                filter(lambda uid: uid["index"] not in received_ids, segments)
-            )
-            n_left = len(valid_segments)
-            if n_left == 0:
-                return jsonify("All divided data segments sent"), 404
-
-            selected_index = random.randint(0, n_left)
-            selected_index = segments[selected_index]['index']
             audio_segments = AudioService.seperate_audio(
-                problem_audio, [item["duration"] for item in answer["divided_data"]]
+                problem_audio, [item["duration"] for item in question["divided_data"]]
             )
-            audio_data = audio_segments[selected_index]
-            received_ids.append(selected_index)
-            answer['received_ids'] = received_ids
-            db.set(answer_uuid, json.dumps(answer))
+            
+            selected_index = -1
+            for idx, segment in enumerate(segments):
+                if segment['uuid'] == segment_uuid:
+                    selected_index = idx
+                    break;
 
+            if selected_index == -1 :
+                return jsonify({"error": "wrong segment uuid"}), 404
+
+            print(selected_index)
+            print(segments)
+            audio_data = audio_segments[selected_index]
 
         if not audio_data:
             return jsonify("No data"), 404
@@ -251,6 +286,7 @@ def get_audio_data():
         )
 
     except Exception as e:
+        traceback.print_exc()
         return f"{e}", 500
 
 
@@ -280,6 +316,20 @@ def download_file(filename):
     except Exception as e:
         return f"{e}", 500
 
+####### TUNG ADDED #########
+@app.route(r"/question-template", methods=["GET"])
+def question_template():
+    try:
+        jsonify({
+          "n_cards": 3, 
+          "n_parts": 2,
+          "bonus_factor": 1.0,
+          "penalty_per_change": 2,
+          "point_per_correct": 10
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return f"{e}", 500
 
 if __name__ == "__main__":
     app.run(host="localhost", port=5000)
