@@ -46,10 +46,11 @@ def createProblemData():
         db.set(uid, json.dumps(question))
         question['n_cards'] = len(question['answer_data'])
         try:
-          del question['answer_data']
-          del question['divided_data']
+            # del question['answer_data']
+            del question['divided_data']
+            # pass
         except:
-          pass
+            pass
 
         return jsonify(question), 200
     except Exception as e:
@@ -87,10 +88,11 @@ def updateProblemData():
 
         question['n_cards'] = len(question['answer_data'])
         try:
-          del question['answer_data']
-          del question['divided_data']
+            # del question['answer_data']
+            del question['divided_data']
+            # pass
         except:
-          pass
+            pass
         return jsonify(question), 200
     except Exception as e:
         traceback.print_exc()
