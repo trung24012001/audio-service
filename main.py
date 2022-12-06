@@ -74,10 +74,10 @@ def updateProblemData():
         if not question:
             return jsonify(message="Question not found"), 404
 
-        n_parts = request.args.get("n_parts") or question.get('n_parts', 2)
-        bonus_factor = request.args.get("bonus_factor") or question.get('bonus_factor', 1.0)
-        penalty_per_change = request.args.get("penalty_per_change") or question.get('penalty_per_change', 2.0)
-        point_per_correct = request.args.get('point_per_correct') or question.get('point_per_correct', 10)
+        n_parts = payload.get("n_parts") or question.get('n_parts', 2)
+        bonus_factor = payload.get("bonus_factor") if utils.is_number(payload.get("bonus_factor")) else question.get('bonus_factor', 1.0)
+        penalty_per_change = payload.get("penalty_per_change") if utils.is_number(payload.get("penalty_per_change")) else question.get('penalty_per_change', 2.0)
+        point_per_correct = payload.get('point_per_correct') or question.get('point_per_correct', 10)
 
         question["answer_data"] = answer_cards
         question["n_parts"] = n_parts

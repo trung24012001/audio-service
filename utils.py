@@ -3,6 +3,9 @@ from database import db
 import audio_service as AudioService
 import random
 
+def is_number(num):
+    ton = type(num)
+    return ton == int or ton == float
 
 def get_answer(answer_uuid):
     if not db.get(answer_uuid):
