@@ -27,7 +27,7 @@ def evaluate(question_data, score_data):
     print(question_data)
     print("--- Score data ---")
     print(score_data)
-# final_bonus_factor = question_data.get("bonus_factor", 1.) * question_data.get('n_parts', 2)*1.0 / score_data.get("parts_needed")
+    # final_bonus_factor = question_data.get("bonus_factor", 1.) * question_data.get('n_parts', 2)*1.0 / score_data.get("parts_needed")
     bonus_factor = question_data.get("bonus_factor", 1.) * 1.0
     n_parts = question_data.get("n_parts", 2)
     parts_needed = score_data.get("parts_needed")
