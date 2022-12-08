@@ -28,14 +28,17 @@ def evaluate(question_data, score_data):
     print("--- Score data ---")
     print(score_data)
 # final_bonus_factor = question_data.get("bonus_factor", 1.) * question_data.get('n_parts', 2)*1.0 / score_data.get("parts_needed")
-    bonus_factor = question_data.get("bonus_factor", 1.)
+    bonus_factor = question_data.get("bonus_factor", 1.) * 1.0
     n_parts = question_data.get("n_parts", 2)
     parts_needed = score_data.get("parts_needed")
     final_bonus_factor = round((1.0 - parts_needed*1.0 / n_parts) * bonus_factor, 2)
     penalties = round(question_data.get("penalty_per_change", 2) * score_data.get('changed'))
     raw_score = question_data.get("point_per_correct", 10) * score_data.get('correct')
-    final_score = round((raw_score - penalties) * (1.0 + bonus_factor*(1.0 - 1.0/n_parts)), 2)
+    final_score = round((raw_score - penalties) * (1.0 + bonus_factor*(1.0 - parts_needed * 1.0/n_parts)), 2)
     max_score = round(question_data.get("point_per_correct", 10)*len(question_data.get("answer_data"))*(1.0 + bonus_factor*(1.0 - 1.0/n_parts)), 2)
+    print(final_bonus_factor)
+    print(final_score)
+    print(max_score)
     score_data["score"] = dict(final_bonus_factor=final_bonus_factor, penalties=penalties, raw_score=raw_score, final_score=final_score, max_score=max_score)
 
 def change_score(team_cards, team_id, question_uuid):
